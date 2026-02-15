@@ -107,10 +107,11 @@ let shakeTime, flashAlpha;
 let hue = 0;
 let gameOver = false;
 
-// Achievements
-let achievements = {doubleJump:false, spikesDodged50:false, stage3Reached:false, highScore100:false};
-
+// Load high score & achievements
 let highScore = localStorage.getItem("neonDashHighScore") || 0;
+let savedAch = localStorage.getItem("ndxAchievements");
+let achievements = savedAch ? JSON.parse(savedAch) : {doubleJump:false, spikesDodged50:false, stage3Reached:false, highScore100:false};
+
 highScoreText.innerText = "🏆 Highest Score: " + highScore;
 
 // Username system
@@ -139,6 +140,7 @@ function showChangeUsername(){
     }
 }
 
+// Initialize game
 function init(){
 gravity = 0.8;
 speed = 6;
@@ -149,22 +151,11 @@ flashAlpha = 0;
 hue = 0;
 gameOver = false;
 
-player = {
-x:150,
-y:canvas.height-140,
-w:40,
-h:40,
-dy:0,
-jumpCount:0,
-rotation:0
-};
-
+player = {x:150, y:canvas.height-140, w:40, h:40, dy:0, jumpCount:0, rotation:0};
 obstacles = [];
-
-// reset achievements
-achievements = {doubleJump:false, spikesDodged50:false, stage3Reached:false, highScore100:false};
 }
 
+// Start game
 function startGame(){
 menu.style.display="none";
 canvas.style.display="block";
@@ -172,15 +163,16 @@ init();
 update();
 }
 
+// Return to menu and update rank/badges
 function returnMenu(){
 canvas.style.display="none";
 menu.style.display="flex";
 highScoreText.innerText="🏆 Highest Score: "+highScore;
-rankText.innerText="Rank: "+calculateRank(Math.floor(score));
+rankText.innerText="Rank: "+calculateRank(highScore);
 badgesText.innerHTML="Badges: "+displayBadges();
 }
 
-// Calculate rank based on score
+// Rank based on high score
 function calculateRank(s){
     if(s<10) return "Beginner";
     if(s<30) return "Novice";
@@ -189,7 +181,7 @@ function calculateRank(s){
     return "Pro Neon Runner";
 }
 
-// Display unlocked badges
+// Display badges
 function displayBadges(){
     let b=[];
     for(let key in achievements){
@@ -198,14 +190,12 @@ function displayBadges(){
     return b.map(x=>`<span class="badge">${x}</span>`).join(" ");
 }
 
-/* ---------------- DRAW BACKGROUND ---------------- */
+/* BACKGROUND */
 function drawBackground(){
 hue += 0.8;
-
 let g = ctx.createLinearGradient(0,0,0,canvas.height);
 g.addColorStop(0,`hsl(${hue},90%,30%)`);
 g.addColorStop(1,`hsl(${hue+60},90%,15%)`);
-
 ctx.fillStyle = g;
 ctx.fillRect(0,0,canvas.width,canvas.height);
 
@@ -220,36 +210,25 @@ ctx.stroke();
 ctx.shadowBlur=0;
 }
 
-/* ---------------- GAME LOOP ---------------- */
+/* GAME LOOP */
 function spawnSpike(){
 let gap = Math.max(260, 400 - stage*40);
-
 if(obstacles.length===0 || canvas.width - obstacles[obstacles.length-1].x > gap){
 let type = Math.random()>0.7 && stage>=3 ? "high":"low";
-obstacles.push({
-x:canvas.width,
-type:type
-});
+obstacles.push({x:canvas.width,type:type});
 }
 }
 
 function update(){
-
 ctx.clearRect(0,0,canvas.width,canvas.height);
-
 let shakeX=0, shakeY=0;
-if(shakeTime>0){
-shakeX=(Math.random()-0.5)*20;
-shakeY=(Math.random()-0.5)*20;
-shakeTime--;
-}
+if(shakeTime>0){shakeX=(Math.random()-0.5)*20;shakeY=(Math.random()-0.5)*20;shakeTime--;}
 ctx.save();
 ctx.translate(shakeX,shakeY);
 
 drawBackground();
 
 if(!gameOver){
-
 player.dy+=gravity;
 player.y+=player.dy;
 
@@ -304,11 +283,7 @@ ctx.fill();
 ctx.shadowBlur=0;
 
 // collision
-if(
-player.x<o.x+40 &&
-player.x+player.w>o.x &&
-player.y+player.h>y-spikeH
-){
+if(player.x<o.x+40 && player.x+player.w>o.x && player.y+player.h>y-spikeH){
 if(!gameOver){
 shakeTime=25;
 flashAlpha=1;
@@ -319,6 +294,9 @@ highScore=Math.floor(score);
 localStorage.setItem("neonDashHighScore",highScore);
 if(highScore>=100) achievements.highScore100=true;
 }
+
+// Save achievements
+localStorage.setItem("ndxAchievements", JSON.stringify(achievements));
 setTimeout(returnMenu,900);
 }
 }
@@ -333,7 +311,7 @@ ctx.font="20px Arial";
 ctx.fillText("Player: "+(username||"Player"),20,20);
 ctx.fillText("Score: "+Math.floor(score),20,45);
 ctx.fillText("Stage: "+stage,20,70);
-ctx.fillText("Rank: "+calculateRank(Math.floor(score)),20,95);
+ctx.fillText("Rank: "+calculateRank(highScore),20,95);
 
 ctx.restore();
 
@@ -346,7 +324,7 @@ flashAlpha-=0.05;
 if(!gameOver) requestAnimationFrame(update);
 }
 
-/* ---------------- INPUT ---------------- */
+/* INPUT */
 function jump(){
 if(!gameOver && player.jumpCount < (stage>=3?2:1)){
 player.dy=-16;
